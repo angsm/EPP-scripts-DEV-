@@ -100,11 +100,20 @@ def setBASEURI( hostname ):
         global BASE_URI
         BASE_URI = hostname + "/api/" + VERSION + "/"
 
+def checkRunUDF():
+
+        pURI = BASE_URI + "processes/" + args[ "processID" ]
+        pXML = api.getResourceByURI( pURI )
+        pDOM = parseString( pXML )
+
+	UDFInput = api.getUDF( pDOM, args[ "UDF" ] )
+        if not UDFInput == args[ "UDFVal" ]:
+        	exit()
 
 def main():
 
 	global api
-	global argsx
+	global args
 	args = {}
 
 	reponse = ""
@@ -140,13 +149,7 @@ def main():
 	
 	## if UDF value matches, run script
 	if "UDF" in args.keys():
-		pURI = BASE_URI + "processes/" + args[ "processID" ]
-        	pXML = api.getResourceByURI( pURI )
-	        pDOM = parseString( pXML )
-		
-		UDFInput = api.getUDF( pDOM, args[ "UDF" ] )
-		if not UDFInput == args[ "UDFVal" ]:
-			exit()
+		checkRunUDF()
 
 	try:
 		## mode 0 checks all files

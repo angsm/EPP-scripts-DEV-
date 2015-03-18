@@ -16,6 +16,7 @@ import glsapiutil
 import re
 from xml.dom.minidom import parseString
 import HTMLParser
+import difflib
 
 #HOST='dlap73v.gis.a-star.edu.sg'
 #HOSTNAME = 'http://'+HOST+':8080'
@@ -47,9 +48,12 @@ def getPrevPID():
 		pURI = BASE_URI + "processes/" + "?inputartifactlimsid=" + ID
         	pXML = api.getResourceByURI( pURI )
         	pDOM = parseString( pXML )
-
-		isFound = 0
 		
+		## this artifact is done, break and go to next artifact
+                if isFound == 1:
+			isFound = 0
+                	break
+
 		## past processes that the artifact had gone through
 		pTag = pDOM.getElementsByTagName( "process" )
 		for p in reversed(pTag):
@@ -69,15 +73,13 @@ def getPrevPID():
 			
 			## will try to match desired prevProcess from front, if found, break loop
 			for process in lastProcess:
-                        	if h.unescape(type) ==  process:
+				if (difflib.SequenceMatcher(None, h.unescape(type), process).ratio()) * 100 > 90:
+                        	#if h.unescape(type) ==  process:
 					## check if processID is not duplicated and not current process
 					if pID not in IDArr and pID != args[ "processID" ]:
 						IDArr.append( pID )
 						isFound = 1
 					break
-			## this artifact is done, break and go to next artifact	
-			if isFound == 1:
-				break
 		
 		## if duplicates of the same process exist, take the latest one
 		parentID = sorted( IDArr, reverse=True)[0]

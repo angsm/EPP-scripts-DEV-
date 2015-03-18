@@ -81,7 +81,9 @@ def getPrevPID( processStr ):
 			
 			## will try to match desired prevProcess from front, if found, break loop
 			for process in lastProcess:
-                        	if h.unescape(type) == process:
+				if (difflib.SequenceMatcher(None, h.unescape(type), process).ratio()) * 100 > 90:
+
+                        	#if h.unescape(type) == process:
 					p = (pID).split("-")
 
 					## check if processID is not duplicated and not current process
@@ -281,10 +283,11 @@ def sendEmail( smtpServer, emailAdd, usrSub):
 
 	else:
 		## everything else that is not rewok, provides link to current step
+		HOST = getHostname()
 		if re.search( "signature", args[ "subject" ].lower() ):
-        		TEXT += "Link: " + BASE_URI  + "/clarity/work-details/" + args[ "processNumber" ] + "\n"
+        		TEXT += "Link: " + HOST  + "/clarity/work-details/" + args[ "processNumber" ] + "\n"
 		else:
-			TEXT += "Link: " + BASE_URI  + "/clarity/work-complete/" + args[ "processNumber" ] + "\n"
+			TEXT += "Link: " + HOST  + "/clarity/work-complete/" + args[ "processNumber" ] + "\n"
 
 		TEXT += "\nArtifacts involved:"
 	
@@ -338,8 +341,8 @@ def checkRunUDF():
         pXML = api.getResourceByURI( pURI )
         pDOM = parseString( pXML )
 
-	response = api.getUDF( pDOM, args[ "UDF" ] )
-        if not response == args[ "UDFVal" ]:
+	UDFInput = api.getUDF( pDOM, args[ "UDF" ] )
+        if not UDFInput == args[ "UDFVal" ]:
                 exit()
 
 def main():
