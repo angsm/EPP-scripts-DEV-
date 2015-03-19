@@ -81,9 +81,9 @@ def getPrevPID( processStr ):
 			
 			## will try to match desired prevProcess from front, if found, break loop
 			for process in lastProcess:
-				if (difflib.SequenceMatcher(None, h.unescape(type), process).ratio()) * 100 > 90:
+				#if (difflib.SequenceMatcher(None, h.unescape(type), process).ratio()) * 100 > 90:
 
-                        	#if h.unescape(type) == process:
+                        	if h.unescape(type) == process:
 					p = (pID).split("-")
 
 					## check if processID is not duplicated and not current process

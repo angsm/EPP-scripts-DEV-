@@ -16,7 +16,7 @@ import glsapiutil
 import re
 from xml.dom.minidom import parseString
 import HTMLParser
-import difflib
+#import difflib
 
 #HOST='dlap73v.gis.a-star.edu.sg'
 #HOSTNAME = 'http://'+HOST+':8080'
@@ -73,8 +73,8 @@ def getPrevPID():
 			
 			## will try to match desired prevProcess from front, if found, break loop
 			for process in lastProcess:
-				if (difflib.SequenceMatcher(None, h.unescape(type), process).ratio()) * 100 > 90:
-                        	#if h.unescape(type) ==  process:
+				#if (difflib.SequenceMatcher(None, h.unescape(type), process).ratio()) * 100 > 90:
+                        	if h.unescape(type) ==  process:
 					## check if processID is not duplicated and not current process
 					if pID not in IDArr and pID != args[ "processID" ]:
 						IDArr.append( pID )
@@ -169,7 +169,7 @@ def getFileURI():
                         	artFileDict[name] = HOSTNAME + "/clarity/api/files/" + fileID
 	return artFileDict, artRemark
 	
-def setFileURI( fileDict, remarkDict, IDArr ):
+def getFile( fileDict, remarkDict, IDArr ):
 
 	for id in IDArr:
 
@@ -191,7 +191,7 @@ def setFileURI( fileDict, remarkDict, IDArr ):
 		response = api.updateObject( aDOM.toxml(), aURI )
 		#print response
 
-def copyFile( fileDict, remarkDict, IDArr ):
+def setFile( fileDict, remarkDict, IDArr ):
 	
 	## check if artifacts have empty UDFs, if yes, fill it up with current UDF values
 	for id in IDArr:
@@ -312,12 +312,14 @@ def main():
 
 	fileDict, remarkDict = getFileURI()
 	artIDArr = getArtID()
-
-	if args[ "fileMode" ] == "get":
-		setFileURI( fileDict, remarkDict, artIDArr )
 	
+	### get files from prev step (use at start of step)
+	if args[ "fileMode" ] == "get":
+		getFile( fileDict, remarkDict, artIDArr )
+	
+	## set file in current step's samples (use at the end of a step)
 	elif args[ "fileMode" ] == "set":
-		copyFile( fileDict, remarkDict, artIDArr )
+		setFile( fileDict, remarkDict, artIDArr )
 	
 	else:
 		print "Script mode is not set"
