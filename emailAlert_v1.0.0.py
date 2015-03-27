@@ -83,7 +83,7 @@ def getPrevPID( processStr ):
 			for process in lastProcess:
 				#if (difflib.SequenceMatcher(None, h.unescape(type), process).ratio()) * 100 > 90:
 
-                        	if h.unescape(type) == process:
+                        	if h.unescape(type) == process.strip():
 					p = (pID).split("-")
 
 					## check if processID is not duplicated and not current process
@@ -94,15 +94,19 @@ def getPrevPID( processStr ):
 
 		
 		## for each artifact, if there is multiple qualifying process id, take the latest 
-		parentID = sorted( IDArr, reverse=True)[0]
-		if parentID not in parentIDs:
-			parentIDs.append(parentID)
-	
+		if IDArr:
+			parentID = sorted( IDArr, reverse=True)[0]
+			if parentID not in parentIDs:
+				parentIDs.append(parentID)
+		else:
+			print "Previous step specified was not found."	
+
 	return parentIDs,pDOM
 
 def searchForTech():
 	
-	techURI = []
+	techURI_TO = []
+	techURI_CC = []
 	
 	## if optional parameter --techName is used, search for technician name in xml
 	if "name" in args.keys():
@@ -124,22 +128,38 @@ def searchForTech():
 			lNameTag = tech.getElementsByTagName( "last-name" )
                         lName = api.getInnerXml( lNameTag[0].toxml(), "last-name" )
 			
-			fullName = fName + lName
+			fullName = fName + " " + lName
 			## search for match of pattern anywhere in the string
 			for name in nameArr:
-				if fullName.lower().find( name.lower() ) > -1:
-        				techURI.append(tech.getAttribute( "uri" ))
+				temp = name.split("::")
+				name = temp[1]
+				type = temp[0]
+
+				if fullName.lower().find( name.strip().lower() ) > -1:
+					if type == "TO":
+        					techURI_TO.append(tech.getAttribute( "uri" ))
+					else:
+						techURI_CC.append(tech.getAttribute( "uri" ))
 
 	## if optional parameter --techNum is entered, append technician number in url
-	elif "number" in args.keys():
+	if "number" in args.keys():
 		number = args[ "number" ].split(",")
 
 		for num in number:
+			
+			temp = num.split("::")
+			num = temp[1]
+			type = temp[0]
+
 			URI = BASE_URI + "researchers/" + num
-			techURI.append(URI)
+
+			if type == "TO":		
+				techURI_TO.append(URI)
+			else:
+				techURI_CC.append(URI)
 	
 	## if optional parameter --roleName is entered, get all tech emails base on roles
-	elif "role" in args.keys():
+	if "role" in args.keys():
 		
 		wantedRolesURI = []
 		rList = args[ "role" ].split(",")
@@ -153,7 +173,7 @@ def searchForTech():
 		for role in roleTag:
 			roleName = role.getAttribute( "name" )
 			for r in rList:
-				if re.match( roleName.lower(), r.lower()):
+				if re.match( roleName.lower(), r.strip().lower()):
 					wantedRolesURI.append( role.getAttribute( "uri" ))
 
 		## get researcher URIs base on role
@@ -164,37 +184,36 @@ def searchForTech():
 			researcherTag = rDOM.getElementsByTagName( "researcher" )	
 			for researcher in researcherTag:
 				rURI = researcher.getAttribute( "uri" )
-				if rURI not in techURI:
-					techURI.append( rURI )
+				if rURI not in techURI_TO:
+					techURI_TO.append( rURI )
 
-	else:
-		pPIDs = []
-		if "prevTech" in args.keys():
-			pPIDs, pDOM = getPrevPID( args[ "prevTech" ] )
-			
-			## concat a 24- in front of process id using list comprehension
-			pPIDs = [( "24-" + str) for str in pPIDs ]
-		else:
-			pPIDs.append( args[ "processID" ] )
+
+	pPIDs = []
+	if "prevTech" in args.keys():
+		pPIDs, pDOM = getPrevPID( args[ "prevTech" ] )
 		
+		## concat a 24- in front of process id using list comprehension
+		pPIDs = [( "24-" + str) for str in pPIDs ]
+
+	if "currTech" in args.keys():
+		pPIDs.append( args[ "processID" ] )
+	
+	if pPIDs:	
 		## pPIDs contains process id in format 24-xxxxx
 		for id in pPIDs:
 			## search process xml for technician details
-	        	gURI = BASE_URI + "processes/" + id
+	       		gURI = BASE_URI + "processes/" + id
         		gXML = api.getResourceByURI( gURI )
-	        	gDOM = parseString( gXML )
+	       		gDOM = parseString( gXML )
 
         		techTag = gDOM.getElementsByTagName( "technician" )
-        		techURI.append( techTag[0].getAttribute( "uri" ))
+        		techURI_TO.append( techTag[0].getAttribute( "uri" ))
 
-	return techURI
+	return techURI_TO, techURI_CC
 
-def getTechEmail():
+def getTechEmail(techURI):
 	
 	emailAdd = []
-
-	## get technician xml uri link
-	techURI = searchForTech()
 	## get technician data
 	for URI in techURI:
         	tXML = api.getResourceByURI( URI )
@@ -203,10 +222,11 @@ def getTechEmail():
 		## get email address from xml
 		tech = tDOM.getElementsByTagName( "res:researcher" )
 		emailAddTag = tech[0].getElementsByTagName( "email" )
-		email = api.getInnerXml( emailAddTag[0].toxml(), "email" )		
+		if emailAddTag:
+			email = api.getInnerXml( emailAddTag[0].toxml(), "email" )		
 
-		if emailAddTag and re.search( "gis" ,email):
-			emailAdd.append( email )
+			if re.search( "gis" ,email):
+				emailAdd.append( email )
 		
 	return emailAdd
 
@@ -262,7 +282,7 @@ def getArtNames( processID ):
 		artNameMap[id] = name
 	return artIDDict, artNameMap
 
-def sendEmail( smtpServer, emailAdd, usrSub):
+def sendEmail( smtpServer, emailAdd_TO, emailAdd_CC, usrSub):
 
 	## Create a text/plain message
 	TEXT = "Dear User,\n"
@@ -303,20 +323,23 @@ def sendEmail( smtpServer, emailAdd, usrSub):
 	
 	## make text MIME format
 	msg = MIMEText(TEXT)
-	#print msg	
 
 	## for displaying only
 	msg['Subject'] = "Clarity LIMS " + usrSub
 	msg['From'] = "claritylims@gis.a-star.edu.sg"
 
 	## list to string, check if its a string first
-	toArr = ",".join(emailAdd)
+	toArr = ",".join(emailAdd_TO)
 	msg['To'] = toArr
-	
+	ccArr = ",".join(emailAdd_CC)
+	msg['Cc'] = ccArr
+
+	emailAdds = emailAdd_TO + emailAdd_CC
+
 	## real address that sendmail module use shld be a list
 	## Send the message via our own SMTP server, but don't include the envelope header
 	s = smtplib.SMTP( smtpServer )
-	s.sendmail(msg['from'], emailAdd, msg.as_string())
+	s.sendmail(msg['from'], emailAdds, msg.as_string())
 	s.quit()
 
 def getHostname():
@@ -356,7 +379,7 @@ def main():
 
 	containerIDs = []
 
-	opts, extraparams = getopt.getopt(sys.argv[1:], "u:p:l:s:", ["msgSub=","techName=", "techNum=", "emailAddress=","emailRole=","prevStepTech=","reworkItem=","UDFName=","UDFValue="])
+	opts, extraparams = getopt.getopt(sys.argv[1:], "u:p:l:s:", ["msgSub=","techName=", "techNum=", "emailAddress=","emailRole=","prevStepTech=","currStepTech=","reworkItem=","UDFName=","UDFValue="])
 	for o,p in opts:
 		if o == '-u':
 			args[ "username" ] = p
@@ -383,6 +406,8 @@ def main():
 			args[ "role" ] = p
 		elif o == '--prevStepTech':
 			args[ "prevTech" ] = p
+		elif o == '--currStepTech':
+			args[ "currTech" ] = p
 
 		## optional step related parameters
 		elif o == '--reworkItem':
@@ -404,25 +429,44 @@ def main():
 	if "UDF" in args.keys():
 		checkRunUDF()
 	
-	## if optional parameter --emailAddress is used, don't search, just use it	
+	## if optional parameter --emailAddress is used, don't search, just use it
+	emailAdd_TO = []
+	emailAdd_CC = []
+
 	if "email" in args.keys():
-        	emailAdd = args[ "email" ].split(",")
+        	tempEmail = args[ "email" ].split(",")
+		for email in tempEmail:
+			email = email.split( "::" )
+			if email[0] == "TO":
+				emailAdd_TO.append( email[1] )
+			else:
+				emailAdd_CC.append( email[1] )
 		
 		## check if any other email function is activated, thus more email add
 		if any(x in args.keys() for x in ['name','number','role','prevTech']):
-			emailAdd.extend( getTechEmail() )
+			## get technician xml uri link
+		        techURI_TO, techURI_CC = searchForTech()
+
+			emailAdd_TO.extend( getTechEmail(techURI_TO) )
+			emailAdd_CC.extend( getTechEmail(techURI_CC) )
 
         	        ## change from unicode to string, remove duplicates (i.e. list(set(t)) )
-	                emailAdd = list(set([x.encode('UTF8') for x in emailAdd]))
-	else:
-		emailAdd = getTechEmail()
-		
-		## change from unicode to string
-		emailAdd = [x.encode('UTF8') for x in emailAdd]
-	
-	try:
-		sendEmail( SERVER, emailAdd, args[ "subject" ])
+	                emailAdd_TO = list(set([x.encode('UTF8') for x in emailAdd_TO]))
+			emailAdd_CC = list(set([x.encode('UTF8') for x in emailAdd_CC]))
 
+	else:
+		## get technician xml uri link
+                techURI_TO, techURI_CC = searchForTech()
+
+                emailAdd_TO = getTechEmail(techURI_TO) 
+                emailAdd_CC = getTechEmail(techURI_CC) 
+	
+		## change from unicode to string
+		emailAdd_TO = [x.encode('UTF8') for x in emailAdd_TO]
+		emailAdd_CC = [x.encode('UTF8') for x in emailAdd_CC]
+
+	try:
+		sendEmail( SERVER, emailAdd_TO, emailAdd_CC, args[ "subject" ])
 
 	
 	## recipient error	
