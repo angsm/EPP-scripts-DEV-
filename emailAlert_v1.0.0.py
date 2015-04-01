@@ -304,7 +304,10 @@ def sendEmail( smtpServer, emailAdd_TO, emailAdd_CC, usrSub):
 	else:
 		## everything else that is not rewok, provides link to current step
 		HOST = getHostname()
-		if re.search( "signature", args[ "subject" ].lower() ):
+		if "qNum" in args.keys():
+			TEXT += "Link: " + HOST  + "/clarity/queue/" + args[ "qNum" ] + "\n"
+		
+		elif re.search( "signature", args[ "subject" ].lower() ):
         		TEXT += "Link: " + HOST  + "/clarity/work-details/" + args[ "processNumber" ] + "\n"
 		else:
 			TEXT += "Link: " + HOST  + "/clarity/work-complete/" + args[ "processNumber" ] + "\n"
@@ -328,6 +331,13 @@ def sendEmail( smtpServer, emailAdd_TO, emailAdd_CC, usrSub):
 	msg['Subject'] = "Clarity LIMS " + usrSub
 	msg['From'] = "claritylims@gis.a-star.edu.sg"
 
+	## check for duplicates in both list, output duplicates in list type
+	dup = set(emailAdd_TO) & set(emailAdd_CC)
+	
+	## remove email add that is already in TO from CC
+	for i in dup:
+		emailAdd_CC.remove(i)
+	
 	## list to string, check if its a string first
 	toArr = ",".join(emailAdd_TO)
 	msg['To'] = toArr
@@ -335,6 +345,9 @@ def sendEmail( smtpServer, emailAdd_TO, emailAdd_CC, usrSub):
 	msg['Cc'] = ccArr
 
 	emailAdds = emailAdd_TO + emailAdd_CC
+
+	#print emailAdds
+	#print msg
 
 	## real address that sendmail module use shld be a list
 	## Send the message via our own SMTP server, but don't include the envelope header
@@ -379,7 +392,7 @@ def main():
 
 	containerIDs = []
 
-	opts, extraparams = getopt.getopt(sys.argv[1:], "u:p:l:s:", ["msgSub=","techName=", "techNum=", "emailAddress=","emailRole=","prevStepTech=","currStepTech=","reworkItem=","UDFName=","UDFValue="])
+	opts, extraparams = getopt.getopt(sys.argv[1:], "u:p:l:s:", ["msgSub=","techName=", "techNum=", "emailAddress=","emailRole=","prevStepTech=","currStepTech=","reworkItem=","UDFName=","UDFValue=","queueNumber="])
 	for o,p in opts:
 		if o == '-u':
 			args[ "username" ] = p
@@ -416,6 +429,8 @@ def main():
 			args[ "UDF" ] = p
 		elif o == '--UDFValue':
 			args[ "UDFVal" ] = p
+		elif o == '--queueNumber':
+			args[ "qNum" ] = p
 	
 	HOSTNAME = getHostname()
 	setBASEURI(HOSTNAME)	
