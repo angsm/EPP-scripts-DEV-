@@ -301,18 +301,18 @@ def sendEmail( smtpServer, emailAdd_TO, emailAdd_CC, usrSub):
 
 		TEXT += "\nArtifacts reworked:"
 
+	
+	## everything else that is not rewok, provides link to current step
+	HOST = getHostname()
+	if "qNum" in args.keys():
+		TEXT += "Link: " + HOST  + "/clarity/queue/" + args[ "qNum" ] + "\n"
+	
+	elif re.search( "signature", args[ "subject" ].lower() ):
+        	TEXT += "Link: " + HOST  + "/clarity/work-details/" + args[ "processNumber" ] + "\n"
 	else:
-		## everything else that is not rewok, provides link to current step
-		HOST = getHostname()
-		if "qNum" in args.keys():
-			TEXT += "Link: " + HOST  + "/clarity/queue/" + args[ "qNum" ] + "\n"
-		
-		elif re.search( "signature", args[ "subject" ].lower() ):
-        		TEXT += "Link: " + HOST  + "/clarity/work-details/" + args[ "processNumber" ] + "\n"
-		else:
-			TEXT += "Link: " + HOST  + "/clarity/work-complete/" + args[ "processNumber" ] + "\n"
+		TEXT += "Link: " + HOST  + "/clarity/work-complete/" + args[ "processNumber" ] + "\n"
 
-		TEXT += "\nArtifacts involved:"
+	TEXT += "\nArtifacts involved:"
 	
 	## artifact names from current process the script is triggered at
 	for key in IDDict:
